@@ -1,21 +1,26 @@
+using System;
 using System.Linq.Expressions;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class Player_Stats : MonoBehaviour
 {
+
+    public event Action<int> OnDamageChanged;
+
     public static Player_Stats Instance;
 
     private Vector2 respawnPoint;
     public Slider slider;
     public Slider slider1;
     public Text currencyText;
+    public Text skillText;
+
+    //[SerializeField]
+    //public int Currency = 100;
 
     [SerializeField]
-    public int Currency = 100;
-
-    [SerializeField]
-    int currentHealth, maxHealth, currentExperience, maxExperience, currentLevel, attackDamage, Speed, skillPoints;
+    int currentHealth, maxHealth, maxExperience = 100, currentLevel, attackDamage, Speed, skillPoints;
 
     public GameOverScreen GameOverScreen;
 
@@ -28,7 +33,34 @@ public class Player_Stats : MonoBehaviour
     {
         respawnPoint = transform.position;
         UpdateHealthUI();
+        UpdateXpUI();
+        UpdateCurrencyUI();
+        // Skill points UI
+        UpdateSkillUI();
         Medkit.OnMedkitCollect += TakeDamage;
+    }
+    private void Update()
+    {
+        if (Input.GetKey(KeyCode.Keypad1) && skillPoints >= 1)
+        {
+            skillPoints--;
+            maxHealth += 10;
+            currentHealth = maxHealth;
+            UpdateSkillUI();
+        }
+        if (Input.GetKey(KeyCode.Keypad2) && skillPoints >= 1)
+        {
+            skillPoints--;
+            attackDamage += 1;
+            OnDamageChanged?.Invoke(attackDamage);
+            UpdateSkillUI();
+        }
+        if (Input.GetKey(KeyCode.Keypad3) && skillPoints >= 1)
+        {
+            skillPoints--;
+            Speed += 1;
+            UpdateSkillUI();
+        }
     }
 
     private void OnEnable()
@@ -43,24 +75,25 @@ public class Player_Stats : MonoBehaviour
 
     public void HandleChange(int newCurrency, int newExperience)
     {
-        currentExperience += newExperience;
-        Currency += newCurrency;
+        GameManager.Instance.AddXP(newExperience);
+        GameManager.Instance.AddCoin(newCurrency);
         UpdateXpUI();
         UpdateCurrencyUI();
 
-        if (currentExperience >= maxExperience)
+        if (GameManager.Instance.XP >= maxExperience)
         {
             LevelUp();
+            UpdateSkillUI();
         }
     }
 
     private void LevelUp()
     {
-        skillPoints += 1;
         currentHealth = maxHealth;
-        currentExperience = 0;
-        maxExperience += 100;
+        GameManager.Instance.ResetXP();
+        maxExperience += 20;
         currentLevel += 1;
+        skillPoints += 1;
         UpdateHealthUI();
         UpdateXpUI();
     }
@@ -101,21 +134,20 @@ public class Player_Stats : MonoBehaviour
             slider.value = currentHealth;
         }
     }
-
     private void UpdateXpUI()
     {
         if (slider1 != null)
         {
-            slider1.value = currentExperience;
+            slider1.value = GameManager.Instance.XP;
         }
     }
 
 
     public bool SpendCurrency(int amount)
     {
-        if (Currency >= amount)
+        if (GameManager.Instance.coinCount >= amount)
         {
-            Currency -= amount;
+            GameManager.Instance.coinCount -= amount;
             UpdateCurrencyUI();
             return true;
         }
@@ -124,15 +156,35 @@ public class Player_Stats : MonoBehaviour
 
     public void AddCurrency(int amount)
     {
-        Currency += amount;
+        GameManager.Instance.AddCoin(amount);
         UpdateCurrencyUI();
+    }
+
+    // Skill pointsam Add()
+    public void AddSkillPoint(int amount)
+    {
+        GameManager.Instance.AddSkill(amount);
     }
 
     private void UpdateCurrencyUI()
     {
         if (currencyText != null)
         {
-            currencyText.text = "Coin count: " + Currency.ToString();
+            currencyText.text = "Coin count: " + GameManager.Instance.coinCount;
         }
     }
+
+    // Skill pointsam UI tekstas
+    private void UpdateSkillUI()
+    {
+        if (skillText != null)
+        {
+            skillText.text = "Skill points: " + skillPoints;
+        }
+    }
+ 
+    public int GetCurrentDamage()
+    {
+        return attackDamage;
+    }   
 }

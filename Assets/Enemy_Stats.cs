@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using TMPro;
 using Unity.VisualScripting;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
@@ -11,6 +12,11 @@ public class Enemy_Stats : MonoBehaviour
     private GUnitGunScript GUnitGunScript;
     private bool HasTarget; 
     [SerializeField] float health, MaxHealth = 3f;
+    public GameObject popUpDamagePrefab;
+    public TMP_Text popUpText;
+    public float popupYOffset = 1f;
+    private HealthBarUI healthUI;
+    [SerializeField] private GameObject healthBarPrefab;
 
     [SerializeField] float moveSpeed = 5f;
 
@@ -23,6 +29,7 @@ public class Enemy_Stats : MonoBehaviour
     [Header("PowerUps")]
     public bool isSpecial = false;
     public List<PowerUp> powerUps = new List<PowerUp>();
+    private Vector2 knockbackForce = new Vector2(5f, 5f);
 
     public void FixedUpdate()
     {
@@ -45,15 +52,52 @@ public class Enemy_Stats : MonoBehaviour
     private void Start()
     {
         health = MaxHealth;
+        
+        // GameObject canvasInstance = Instantiate(healthBarPrefab, transform);
+        // canvasInstance.transform.localPosition = new Vector3(0, 0.5f, 0); // or whatever offset works
+        // healthUI = canvasInstance.GetComponentInChildren<HealthBarUI>();
+        // healthUI.Initialize(transform, (int)MaxHealth);
+        
+        GameObject healthBarInstance = Instantiate(healthBarPrefab, transform.position + new Vector3(0, 0.5f, 0), Quaternion.identity);
+        healthBarInstance.transform.SetParent(transform); // Make enemy the parent
+    
+        healthUI = healthBarInstance.GetComponentInChildren<HealthBarUI>();
+        if (healthUI == null)
+        {
+            Debug.LogError("HealthBarUI component not found on health bar prefab!");
+            return;
+        }
+    
+        healthUI.Initialize(transform, MaxHealth);
+        healthUI.SetHealth(health, MaxHealth); // Explicitly set initial health
     }
 
     public void TakeDamage(float damageAmount)
     {
-        if (Random.RandomRange(0,100) == 0 || Random.RandomRange(0, 100) == 1) // 2% critical
+        if (Random.Range(0,100) == 0 || Random.Range(0, 100) == 1) // 2% critical
         {
             damageAmount *= 2;
         }
         health -= damageAmount;
+        popUpText.text = damageAmount.ToString();
+        health = Mathf.Clamp(health, 0, MaxHealth); 
+        if (healthUI != null)
+        {
+            healthUI.SetHealth(health, MaxHealth);
+        }
+        else
+        {
+            Debug.LogWarning("HealthUI reference is null!");
+        }
+
+        Vector2 hitDirection = transform.position.normalized;
+        rb.AddForce(hitDirection * 2, ForceMode2D.Impulse);
+        
+        GameObject popup = Instantiate(popUpDamagePrefab, transform.position, Quaternion.identity);
+        DamagePopUp popupScript = popup.AddComponent<DamagePopUp>();
+        popupScript.target = transform;
+        popupScript.offset = new Vector3(0, 1f, 0);
+        
         if (health <= 0)
         {
             Die();
